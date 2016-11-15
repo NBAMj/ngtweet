@@ -33,5 +33,8 @@ angular.module('ngtweet-test').config(['$routeProvider',
       }).
       when('/searches', {
           templateUrl: 'partials/searches.html'
+      }).
+      when('/moments', {
+          templateUrl: 'partials/moments.html'
       });
   }]);
