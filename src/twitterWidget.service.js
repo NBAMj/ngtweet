@@ -78,11 +78,21 @@ function TwitterWidgetFactory($document, $http, ngTweetLogger, twitterWidgetURL,
             ngTweetLogger.error('Could not wrap element: ', message, element);
         });
     }
+    function createMoment(id, screenName, element, options) {
+        return loadScript().then(function success(twttr) {
+            ngTweetLogger.debug('Creating Timeline', id, screenName, options, element);
+            if (angular.isString(screenName) && screenName.length > 0) {
+                options['screenName'] = screenName;
+            }
+            return $q.when(twttr.widgets.createMoment(id, element, options));
+        });
+    }
 
     return {
         createTweet: createTweet,
         createTimeline: createTimeline,
         createTimelineNew: createTimelineNew,
+        createMoment: createMoment,
         initialize: loadScript,
         load: wrapElement
     };
