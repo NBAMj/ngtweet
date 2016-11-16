@@ -65,137 +65,6 @@ function ngTweetLogger($log, ngTweetLogVerbose) {
 (function() {
 'use strict';
 
-TwitterMoment.$inject = ["ngTweetLogger", "TwitterWidgetFactory"];
-angular
-    .module('ngtweet')
-    .directive('twitterMoment', TwitterMoment);
-
-function TwitterMoment(ngTweetLogger, TwitterWidgetFactory) {
-    function TimelineArgumentException(timelineType, message) {
-        this.timelineType = timelineType;
-        this.message = message;
-    }
-
-    var rules = {
-        profile: [['screenName'], ['userId']],
-        likes: [['screenName'], ['userId']],
-        collection: [['id']],
-        widget: [['id']],
-        list: [['id'], ['ownerScreenName', 'slug']],
-        url: [['url']],
-    };
-
-    function getSourceRuleString(sourceRule) {
-        function getRuleString(rule) {
-            if (rule.length === 1) {
-                return '"' + rule + '"';
-            }
-            return '("' + rule.join('" AND "') + '")';
-        }
-
-        return sourceRule.map(getRuleString).join(' OR ');
-    }
-
-    //TODO: fix this for moment
-    function getTimelineArgs(scope) {
-        var timelineArgs = {sourceType: scope.sourceType};
-        if (rules.hasOwnProperty(scope.sourceType)) {
-            var sourceRules = rules[scope.sourceType];
-            var valid = false;
-            for (var i = 0, len = sourceRules.length; i < len; i++) {
-                var rule = sourceRules[i];
-                var params = {};
-                for (var j = 0, ruleLen = rule.length; j < ruleLen; j++) {
-                    if (scope[rule[j]]) {
-                        params[rule[j]] = scope[rule[j]];
-                    }
-                }
-                if (Object.keys(params).length === ruleLen) {
-                    angular.merge(timelineArgs, params);
-                    valid = true;
-                    break;
-                }
-            }
-            if (!valid) {
-                throw new TimelineArgumentException(scope.sourceType, 'args: ' + getSourceRuleString(sourceRules));
-            }
-        } else {
-            throw new TimelineArgumentException(scope.sourceType, 'unknown type');
-        }
-
-        return timelineArgs;
-    }
-
-    function link(scope, element, attrs) {
-        ngTweetLogger.debug('Linking', scope, element, attrs);
-        if (scope.id && !angular.isString(scope.id)) {
-            ngTweetLogger.warn('twitterTimelineId should probably be a string due to loss of precision.');
-        }
-        try {
-            scope.twitterMomentOptions = JSON.parse(attrs.twitterMomentOptions);
-            console.log('options');
-            console.log(scope.twitterMomentOptions);
-        } catch (e) {
-            scope.$watch(function() {
-                return scope.$parent.$eval(attrs.twitterMomentOptions);
-            }, function(newValue, oldValue) {
-                scope.twitterMomentOptions = newValue;
-            });
-        }
-        if (angular.isUndefined(scope.twitterMomentOptions)) {
-            console.log('undefined');
-            scope.twitterMomentOptions = {};
-        }
-        if (scope.sourceType) { //new style embed
-            var timelineArgs;
-            try {
-                timelineArgs = getTimelineArgs(scope);
-            } catch (e) {
-                ngTweetLogger.error('Could not create new timeline: bad args for type "' +
-                                    e.timelineType + '". Reason: ' + e.message);
-                return;
-            }
-            TwitterWidgetFactory.createMoment(timelineArgs, element[0], scope.twitterMomentOptions)
-                    .then(function success(embed) {
-                ngTweetLogger.debug('New Timeline Success!!!');
-            }).catch(function creationError(message) {
-                ngTweetLogger.error('Could not create new timeline: ', message, element);
-            });
-        } else if (!angular.isUndefined(scope.id) || angular.isString(scope.screenName)) {
-            TwitterWidgetFactory.createMoment(scope.id, scope.screenName, element[0],
-                    scope.twitterMomentOptions).then(function success(embed) {
-                ngTweetLogger.debug('Timeline Success!!!');
-            }).catch(function creationError(message) {
-                        ngTweetLogger.error('Could not create timeline: ', message, element);
-                    });
-        } else {
-            TwitterWidgetFactory.load(element[0]);
-        }
-    }
-
-    return {
-        restrict: 'E',
-        replace: true,
-        transclude: true,
-        scope: {
-            id: '=?twitterMomentId',
-            screenName: '=?twitterTimelineScreenName',
-            sourceType: '@?twitterTimelineType',
-            userId: '=?twitterTimelineUserId',
-            ownerScreenName: '=?twitterTimelineOwnerScreenName',
-            slug: '=?twitterTimelineSlug',
-            url: '=?twitterTimelineUrl',
-            limit: '=?limit'
-        },
-        template: '<div class="ngtweet-wrapper" ng-transclude></div>',
-        link: link
-    };
-}
-})();
-
-(function() {
-'use strict';
-
 TwitterTimeline.$inject = ["ngTweetLogger", "TwitterWidgetFactory"];
 angular
     .module('ngtweet')
@@ -445,21 +314,11 @@ function TwitterWidgetFactory($document, $http, ngTweetLogger, twitterWidgetURL,
             ngTweetLogger.error('Could not wrap element: ', message, element);
         });
     }
-    function createMoment(id, screenName, element, options) {
-        return loadScript().then(function success(twttr) {
-            ngTweetLogger.debug('Creating Timeline', id, screenName, options, element);
-            if (angular.isString(screenName) && screenName.length > 0) {
-                options['screenName'] = screenName;
-            }
-            return $q.when(twttr.widgets.createMoment(id, element, options));
-        });
-    }
 
     return {
         createTweet: createTweet,
         createTimeline: createTimeline,
         createTimelineNew: createTimelineNew,
-        createMoment: createMoment,
         initialize: loadScript,
         load: wrapElement
     };
